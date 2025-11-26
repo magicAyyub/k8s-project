@@ -1,79 +1,83 @@
 # Projet Kubernetes - Smart Todo App
 
-App Todo smart, piloté par NLP déployée avec Kubernetes, Minikube et GCP.
+Application Todo déployée sur Kubernetes avec architecture microservices.
 
-## Construction des images Docker
+## Prérequis
 
-### Option 1 : Pour Minikube (Local)
+- **Minikube** : Pour le déploiement local
+- **kubectl** : Client Kubernetes
+- **Docker** : Pour builder les images (uniquement si vous modifiez le code)
+- **gcloud CLI** : Pour le déploiement sur GCP (optionnel)
+
+## Images Docker
+
+Les images sont disponibles publiquement sur Docker Hub :
+- `ayyubmgc/smart-todo-backend:latest`
+- `ayyubmgc/smart-todo-frontend:latest`
+
+Vous n'avez **pas besoin** de builder les images pour déployer l'application. Kubernetes va automatiquement les télécharger depuis Docker Hub.
+
+### Reconstruire les images (optionnel)
+
+Si vous modifiez le code source et souhaitez reconstruire les images :
 
 ```bash
 cd docker-project-master
 
-# Builder les images localement (avec --network=host si problème DNS)
-docker build --network=host -t smart-todo-backend:latest -f backend/Dockerfile .
-docker build --network=host -t smart-todo-frontend:latest -f frontend/Dockerfile .
+# Builder les images
+docker build --network=host -t ayyubmgc/smart-todo-backend:latest -f backend/Dockerfile .
+docker build --network=host -t ayyubmgc/smart-todo-frontend:latest -f frontend/Dockerfile .
 
-# Charger les images dans Minikube
-minikube image load smart-todo-backend:latest
-minikube image load smart-todo-frontend:latest
+# Pousser sur Docker Hub (nécessite docker login)
+docker push ayyubmgc/smart-todo-backend:latest
+docker push ayyubmgc/smart-todo-frontend:latest
 ```
-
-> **Note** : Les deployments utilisent `imagePullPolicy: Never` pour Minikube.
-
-### Option 2 : Pour GCP/Production (Docker Hub)
-
-```bash
-cd docker-project-master
-
-# Builder et pousser sur Docker Hub
-docker build --network=host -t VOTRE_USERNAME/smart-todo-backend:latest -f backend/Dockerfile .
-docker build --network=host -t VOTRE_USERNAME/smart-todo-frontend:latest -f frontend/Dockerfile .
-
-docker push VOTRE_USERNAME/smart-todo-backend:latest
-docker push VOTRE_USERNAME/smart-todo-frontend:latest
-```
-
-Puis modifier les deployments :
-- `05-backend-deployment.yaml` : Remplacer `image: smart-todo-backend:latest` par `image: VOTRE_USERNAME/smart-todo-backend:latest`
-- `07-frontend-deployment.yaml` : Remplacer `image: smart-todo-frontend:latest` par `image: VOTRE_USERNAME/smart-todo-frontend:latest`
-- Retirer ou commenter `imagePullPolicy: Never` dans les deux fichiers
 
 ---
 
-## 📦 Déploiement
+## Déploiement
+
+### Déploiement rapide (Minikube ou GCP)
+
+Le projet inclut un script de déploiement automatique qui supporte Minikube et GCP :
+
+```bash
+# Pour Minikube (local)
+./deploy.sh minikube
+
+# Pour GCP (production)
+./deploy.sh gcp
+```
 
 ### Déploiement sur Minikube (Local)
 
-#### 1. Démarrer et configurer Minikube
+#### 1. Démarrer Minikube
 
 ```bash
 # Démarrer Minikube
 minikube start
 
-# Activer les addons nécessaires
-minikube addons enable ingress
-minikube addons enable metrics-server
-
 # Vérifier que Minikube fonctionne
 minikube status
 ```
 
-#### 2. Charger les images Docker (si pas sur Docker Hub)
+#### 2. Déployer l'application
 
 ```bash
-# Charger les images dans Minikube
-minikube image load smart-todo-backend:latest
-minikube image load smart-todo-frontend:latest
-
-# Vérifier que les images sont chargées
-minikube ssh -- docker images | grep smart-todo
+# Utiliser le script de déploiement automatique
+./deploy.sh minikube
 ```
 
-#### 3. Déployer l'application
+Le script va :
+- Activer les addons nécessaires (ingress, metrics-server)
+- Créer le namespace `smart-todo-app`
+- Déployer PostgreSQL avec son volume persistant
+- Déployer le backend et le frontend
+- Configurer l'Ingress et le HPA
+
+**Alternative manuelle** :
 
 ```bash
-cd k8s-project
-
 # Déploiement dans l'ordre
 kubectl apply -f 00-namespace.yaml
 kubectl apply -f 01-postgres-secret.yaml
@@ -88,24 +92,12 @@ kubectl apply -f 09-ingress.yaml
 kubectl apply -f 10-backend-hpa.yaml
 ```
 
-**Ou en une seule commande** :
-```bash
 kubectl apply -f .
 ```
 
-#### 4. Configurer l'accès local
+#### 3. Accéder à l'application
 
-```bash
-# Ajouter l'entrée dans /etc/hosts
-echo "$(minikube ip) smart-todo-app.local" | sudo tee -a /etc/hosts
-
-# Lancer le tunnel Minikube (dans un terminal séparé)
-minikube tunnel
-```
-
-#### 5. Accéder à l'application
-
-**Option A : Via Port-Forward (Recommandé pour le développement)**
+**Option A : Via Port-Forward (Recommandé)**
 
 ```bash
 # Backend
@@ -116,14 +108,23 @@ kubectl port-forward -n smart-todo-app svc/frontend-service 3000:3000
 ```
 
 Puis accéder à :
-- Backend : http://localhost:8000/health
 - Frontend : http://localhost:3000
+- Backend : http://localhost:8000/health
+- Documentation API : http://localhost:8000/docs
 
 **Option B : Via Ingress**
 
-Après avoir lancé `minikube tunnel` :
+```bash
+# Ajouter l'entrée dans /etc/hosts
+echo "$(minikube ip) smart-todo-app.local" | sudo tee -a /etc/hosts
+
+# Lancer le tunnel Minikube (dans un terminal séparé)
+minikube tunnel
+```
+Puis accéder à :
 - Frontend : http://smart-todo-app.local
 - Backend : http://smart-todo-app.local/health
+- Documentation API : http://smart-todo-app.local/docs
 
 ---
 
@@ -148,9 +149,22 @@ gcloud container clusters create smart-todo-cluster \
 gcloud container clusters get-credentials smart-todo-cluster --zone=europe-west1-b
 ```
 
-#### 2. Installer l'Ingress Controller NGINX
+#### 2. Déployer l'application
 
 ```bash
+# Utiliser le script de déploiement automatique
+./deploy.sh gcp
+```
+
+Le script va :
+- Installer l'Ingress Controller NGINX pour GCP
+- Déployer toutes les ressources Kubernetes
+- Attendre l'assignation de l'IP externe
+
+**Alternative manuelle** :
+
+```bash
+# Installer l'Ingress Controller NGINX
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.1/deploy/static/provider/cloud/deploy.yaml
 
 # Attendre que l'Ingress Controller soit prêt
@@ -158,18 +172,12 @@ kubectl wait --namespace ingress-nginx \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \
   --timeout=120s
-```
-
-#### 3. Déployer l'application
-
-```bash
-cd k8s-project
 
 # Déployer toutes les ressources
 kubectl apply -f .
 ```
 
-#### 4. Obtenir l'IP externe de l'Ingress
+#### 3. Obtenir l'IP externe et configurer le DNS
 
 ```bash
 # Attendre que l'IP externe soit assignée
@@ -180,7 +188,7 @@ export INGRESS_IP=$(kubectl get ingress smart-todo-app-ingress -n smart-todo-app
 echo "IP de l'Ingress : $INGRESS_IP"
 ```
 
-#### 5. Configurer le DNS
+#### 4. Configurer le DNS
 
 Option 1 : Ajouter à `/etc/hosts` pour tester
 ```bash
@@ -192,14 +200,15 @@ Option 2 : Configurer un vrai DNS (Production)
 - Pointer `smart-todo-app.votredomaine.com` vers `$INGRESS_IP`
 - Modifier `09-ingress.yaml` pour utiliser votre domaine
 
-#### 6. Accéder à l'application
+#### 5. Accéder à l'application
 
 - Frontend : http://smart-todo-app.local (ou votre domaine)
 - Backend : http://smart-todo-app.local/health
+- Documentation API : http://smart-todo-app.local/docs
 
 ---
 
-### Vérifier le déploiement
+## Vérifier le déploiement
 
 ```bash
 # Vérifier les pods
@@ -226,14 +235,13 @@ kubectl logs <pod-name> -n smart-todo-app
 
 ---
 
-## 🌐 Tests de l'application
+## Tests de l'application
 
-### Test avec curl (Minikube - Port Forward)
+### Test avec curl
+
+**Avec Port-Forward (Minikube recommandé)** :
 
 ```bash
-# Démarrer le port-forward
-kubectl port-forward -n smart-todo-app svc/backend-service 8000:8000
-
 # Démarrer le port-forward
 kubectl port-forward -n smart-todo-app svc/backend-service 8000:8000
 
@@ -254,7 +262,7 @@ curl -X POST http://localhost:8000/create_task \
 curl http://localhost:8000/get_task
 ```
 
-### Test avec curl (GCP - Via Ingress)
+**Via Ingress (Minikube avec tunnel ou GCP)** :
 
 ```bash
 # Test du backend
@@ -303,29 +311,11 @@ kubectl top pods -n smart-todo-app
 
 ---
 
-## 🌐 Accès à l'application
+## Accès à l'application
 
-### Configuration du fichier hosts (GCP uniquement)
+### Configuration pour Minikube
 
-L'ingress utilise le host `smart-todo-app.local`. Pour GCP, ajoutez cette entrée à votre `/etc/hosts` :
-
-```bash
-# Récupérer l'IP de l'Ingress
-kubectl get ingress -n smart-todo-app
-
-# Ajouter au fichier hosts
-echo "<INGRESS_IP> smart-todo-app.local" | sudo tee -a /etc/hosts
-```
-
-### Accès via navigateur (GCP)
-
-- **Frontend** : http://smart-todo-app.local
-- **API Backend** : http://smart-todo-app.local/health
-- **Documentation API** : http://smart-todo-app.local/docs
-
-### Port-forward pour Minikube
-
-Pour Minikube, utilisez le port-forward (plus fiable que l'ingress en local) :
+Utilisez le port-forward (plus fiable que l'ingress en local) :
 
 ```bash
 # Backend
@@ -339,6 +329,31 @@ Puis accédez à :
 - **Frontend** : http://localhost:3000
 - **Backend** : http://localhost:8000
 - **Documentation API** : http://localhost:8000/docs
+
+Alternativement, via Ingress avec tunnel :
+
+```bash
+# Ajouter au fichier hosts
+echo "$(minikube ip) smart-todo-app.local" | sudo tee -a /etc/hosts
+
+# Lancer le tunnel Minikube (terminal séparé)
+minikube tunnel
+```
+
+### Configuration pour GCP
+
+```bash
+# Récupérer l'IP de l'Ingress
+kubectl get ingress -n smart-todo-app
+
+# Ajouter au fichier hosts (pour test local)
+echo "<INGRESS_IP> smart-todo-app.local" | sudo tee -a /etc/hosts
+```
+
+Accès via navigateur :
+- **Frontend** : http://smart-todo-app.local
+- **API Backend** : http://smart-todo-app.local/health
+- **Documentation API** : http://smart-todo-app.local/docs
 
 ---
 
@@ -388,18 +403,13 @@ kubectl get events -n smart-todo-app --sort-by='.lastTimestamp'
 
 ---
 
-## 🧪 Test de persistance des données
+## Test de persistance des données
 
 ### Test 1 : Vérifier la persistance PostgreSQL
 
 ```bash
-# Créer des données via l'API (Minikube)
+# Créer des données via l'API
 curl -X POST http://localhost:8000/create_task \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Test persistance", "description": "Cette tâche doit survivre", "priority": "high"}'
-
-# Créer des données via l'API (GCP)
-curl -X POST http://smart-todo-app.local/create_task \
   -H "Content-Type: application/json" \
   -d '{"title": "Test persistance", "description": "Cette tâche doit survivre", "priority": "high"}'
 
@@ -409,11 +419,8 @@ kubectl delete pod -l app=postgres -n smart-todo-app
 # Attendre que le pod redémarre (quelques secondes)
 kubectl get pods -n smart-todo-app -w
 
-# Vérifier que les données sont toujours là (Minikube)
+# Vérifier que les données sont toujours là
 curl http://localhost:8000/get_task
-
-# Vérifier que les données sont toujours là (GCP)
-curl http://smart-todo-app.local/get_task
 ```
 
 ### Test 2 : Tester le ReplicaSet
@@ -462,12 +469,10 @@ minikube delete
 
 ## Notes importantes
 
-1. **Les images Docker doivent être accessibles** : Assurez-vous que les images sont soit :
-   - Pushées sur Docker Hub (publiques ou privées avec imagePullSecrets)
-   - Chargées dans Minikube : `minikube image load <image-name>`
+1. **Images Docker** : Les images sont disponibles publiquement sur Docker Hub (`ayyubmgc/smart-todo-backend` et `ayyubmgc/smart-todo-frontend`). Aucune action manuelle requise.
 
-2. **Metrics Server requis pour le HPA** : Sans lui, le HPA ne fonctionnera pas.
+2. **Metrics Server** : Requis pour le HPA. Activé automatiquement par `deploy.sh` pour Minikube.
 
-3. **Les services sont en ClusterIP** : Ils ne sont accessibles que via l'Ingress, donc non exposés directement sur Internet.
+3. **Services ClusterIP** : Accessibles uniquement via Ingress ou port-forward, non exposés directement sur Internet.
 
-4. **Le frontend doit pouvoir communiquer avec le backend** : L'environnement `NEXT_PUBLIC_API_URL` doit pointer vers `backend-service`.
+4. **Communication Backend** : Le frontend communique avec le backend via `NEXT_PUBLIC_API_URL=http://backend-service:8000`.

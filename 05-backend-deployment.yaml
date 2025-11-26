@@ -19,8 +19,8 @@ spec:
     spec:
       containers:
       - name: backend
-        image: smart-todo-backend:latest
-        imagePullPolicy: Never
+        image: ayyubmgc/smart-todo-backend:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
           name: http
