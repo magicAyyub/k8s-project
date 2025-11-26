@@ -1,8 +1,8 @@
 # Projet Kubernetes - Smart Todo App
 
-Application Todo déployée sur Kubernetes avec architecture microservices.
+App Todo smart, piloté par NLP déployée avec Kubernetes, Minikube et GCP.
 
-## 🏗️ Construction des images Docker
+## Construction des images Docker
 
 ### Option 1 : Pour Minikube (Local)
 
@@ -276,7 +276,7 @@ curl http://smart-todo-app.local/get_task
 
 ---
 
-## 📊 Tests du HPA (Autoscaling)
+## Tests du HPA (Autoscaling)
 
 ### Générer de la charge
 
@@ -342,7 +342,7 @@ Puis accédez à :
 
 ---
 
-## 🔍 Commandes utiles
+## Commandes utiles
 
 ### Gestion des pods
 
@@ -460,20 +460,7 @@ minikube delete
 
 ---
 
-## ✅ Checklist des contraintes du prof
-
-- [x] **3 pods minimum** : Frontend, Backend, PostgreSQL
-- [x] **3 Deployments différents** : Un par composant
-- [x] **ReplicaSets** : Créés automatiquement par les Deployments
-- [x] **Services** : ClusterIP pour tous (non accessible depuis Internet)
-- [x] **Ingress** : Routing vers frontend et backend
-- [x] **Volumes** : PVC pour PostgreSQL
-- [x] **Secrets** : Pour les credentials de la base
-- [x] **HPA (bonus)** : Autoscaling du backend sur CPU/mémoire
-
----
-
-## 📝 Notes importantes
+## Notes importantes
 
 1. **Les images Docker doivent être accessibles** : Assurez-vous que les images sont soit :
    - Pushées sur Docker Hub (publiques ou privées avec imagePullSecrets)
@@ -484,52 +471,3 @@ minikube delete
 3. **Les services sont en ClusterIP** : Ils ne sont accessibles que via l'Ingress, donc non exposés directement sur Internet.
 
 4. **Le frontend doit pouvoir communiquer avec le backend** : L'environnement `NEXT_PUBLIC_API_URL` doit pointer vers `backend-service`.
-
----
-
-## 🐛 Troubleshooting
-
-### Les pods ne démarrent pas
-
-```bash
-kubectl describe pod <pod-name> -n smart-todo-app
-kubectl logs <pod-name> -n smart-todo-app
-```
-
-### L'Ingress ne fonctionne pas
-
-```bash
-# Vérifier que l'Ingress Controller est installé
-kubectl get pods -n ingress-nginx
-
-# Vérifier l'Ingress
-kubectl describe ingress smart-todo-app-ingress -n smart-todo-app
-```
-
-### Le HPA n'affiche pas de métriques
-
-```bash
-# Vérifier le Metrics Server
-kubectl get pods -n kube-system | grep metrics
-
-# Vérifier les métriques
-kubectl top nodes
-kubectl top pods -n smart-todo-app
-```
-
-### Problèmes de connexion à PostgreSQL
-
-```bash
-# Vérifier que le pod est prêt
-kubectl get pods -n smart-todo-app
-
-# Tester la connexion depuis le backend
-kubectl exec -it <backend-pod> -n smart-todo-app -- /bin/sh
-nc -zv postgres-service 5432
-```
-
----
-
-## 👨‍💻 Auteur
-
-**Ayouba DOUMBIA** - ESGI Master 2 - 5IABD2 - 2026
