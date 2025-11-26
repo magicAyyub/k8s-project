@@ -177,9 +177,13 @@ echo ""
 
 if [[ "$DEPLOYMENT_MODE" == "minikube" ]]; then
     MINIKUBE_IP=$(minikube ip)
+    NODEPORT=$(kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.spec.ports[?(@.name=="http")].nodePort}')
+    
     echo "Mode: Minikube (Local)"
     echo ""
-    echo "Option 1: Port-Forward (Recommandé)"
+    echo "RECOMMANDATION: Utilisez Port-Forward pour un accès fiable"
+    echo ""
+    echo "Option 1: Port-Forward (Méthode recommandée)"
     echo "  Backend:"
     echo "    kubectl port-forward -n smart-todo-app svc/backend-service 8000:8000"
     echo "  Frontend (dans un autre terminal):"
@@ -190,16 +194,19 @@ if [[ "$DEPLOYMENT_MODE" == "minikube" ]]; then
     echo "    Backend:  http://localhost:8000"
     echo "    API Docs: http://localhost:8000/docs"
     echo ""
-    echo "Option 2: Via Ingress"
-    echo "  1. Ajoutez à /etc/hosts:"
+    echo "Option 2: Via Ingress (peut nécessiter configuration réseau)"
+    echo "  Note: Sur macOS, l'accès via Ingress peut être problématique."
+    echo "  L'IP Minikube ($MINIKUBE_IP) n'est pas toujours accessible depuis l'hôte."
+    echo ""
+    echo "  Si vous souhaitez quand même tester:"
+    echo "  1. Vérifiez que minikube tunnel est actif (déjà lancé)"
+    echo "  2. Ajoutez à /etc/hosts (si pas déjà fait):"
     echo "     echo \"$MINIKUBE_IP smart-todo-app.local\" | sudo tee -a /etc/hosts"
+    echo "  3. Accédez via NodePort:"
+    echo "     http://$MINIKUBE_IP:$NODEPORT (avec Host header dans navigateur)"
     echo ""
-    echo "  2. Dans un terminal séparé, lancez:"
-    echo "     minikube tunnel"
-    echo ""
-    echo "  3. Accédez à:"
-    echo "     Frontend: http://smart-todo-app.local"
-    echo "     Backend:  http://smart-todo-app.local/health"
+    echo "  Alternative: Utilisez 'minikube service' pour accès direct:"
+    echo "    minikube service frontend-service -n smart-todo-app"
     echo ""
     
 elif [[ "$DEPLOYMENT_MODE" == "gcp" ]]; then
