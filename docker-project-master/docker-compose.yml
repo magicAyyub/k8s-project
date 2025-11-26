@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:${POSTGRES_PORT}/${DB_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - backend_logs:/app/logs  # Monte le volume pour les logs
+    networks:
+      - backend_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: postgres_db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend_network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: nextjs_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://backend:8000
+    depends_on:
+      - backend
+    networks:
+      - backend_network
+      - public_network
+
+  backend_logger:
+    image: alpine
+    container_name: backend_log_sidecar
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - backend_logs:/app/logs
+    networks:
+      - backend_network
+    command: sh -c "while [ ! -f /app/logs/backend.log ]; do sleep 1; done; tail -f /app/logs/backend.log"
+
+
+networks:
+  backend_network:
+    driver: bridge
+    internal: true # Réseau privé
+  public_network:
+    driver: bridge
+
+volumes:
+  backend_logs:
+  postgres_data:

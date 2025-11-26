@@ -1,0 +1,11 @@
+# Fichier .dockerignore pour optimiser le build
+# À placer dans docker-project-master/
+
+node_modules
+npm-debug.log
+.next
+.git
+.gitignore
+README.md
+.env.local
+.env.*.local
