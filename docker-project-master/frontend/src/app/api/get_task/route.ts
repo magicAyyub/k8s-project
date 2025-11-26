@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const apiUrl = 'http://backend:8000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://backend-service:8000';
   console.log(`Tentative de connexion à : ${apiUrl}/get_task`);
 
   try {
