@@ -1,12 +1,12 @@
-# Projet Kubernetes - Smart Todo App
+# Projet Kubernetes
 
-Application Todo déployée sur Kubernetes avec architecture microservices.
+--
 
 ## Prérequis
 
 - **Minikube** : Pour le déploiement local
 - **kubectl** : Client Kubernetes
-- **Docker** : Pour builder les images (uniquement si vous modifiez le code)
+- **Docker** : Pour builder les images (optionnel)
 - **gcloud CLI** : Pour le déploiement sur GCP (optionnel)
 
 ## Images Docker
@@ -17,9 +17,9 @@ Les images sont disponibles publiquement sur Docker Hub :
 
 Vous n'avez **pas besoin** de builder les images pour déployer l'application. Kubernetes va automatiquement les télécharger depuis Docker Hub.
 
-### Reconstruire les images (optionnel)
+### Reconstruire les images (Note pour Moi-même)
 
-Si vous modifiez le code source et souhaitez reconstruire les images :
+pour modifier le code source et reconstruire les images :
 
 ```bash
 cd docker-project-master
@@ -36,18 +36,6 @@ docker push ayyubmgc/smart-todo-frontend:latest
 ---
 
 ## Déploiement
-
-### Déploiement rapide (Minikube ou GCP)
-
-Le projet inclut un script de déploiement automatique qui supporte Minikube et GCP :
-
-```bash
-# Pour Minikube (local)
-./deploy.sh minikube
-
-# Pour GCP (production)
-./deploy.sh gcp
-```
 
 ### Déploiement sur Minikube (Local)
 
@@ -92,12 +80,14 @@ kubectl apply -f 09-ingress.yaml
 kubectl apply -f 10-backend-hpa.yaml
 ```
 
+Ou tout déployer en une seule commande
+
+```bash
 kubectl apply -f .
 ```
 
 #### 3. Accéder à l'application
-
-**Option A : Via Port-Forward (Recommandé)**
+Utiliser le port-forward (plus fiable que l'ingress en local) :
 
 ```bash
 # Backend
@@ -112,19 +102,6 @@ Puis accéder à :
 - Backend : http://localhost:8000/health
 - Documentation API : http://localhost:8000/docs
 
-**Option B : Via Ingress**
-
-```bash
-# Ajouter l'entrée dans /etc/hosts
-echo "$(minikube ip) smart-todo-app.local" | sudo tee -a /etc/hosts
-
-# Lancer le tunnel Minikube (dans un terminal séparé)
-minikube tunnel
-```
-Puis accéder à :
-- Frontend : http://smart-todo-app.local
-- Backend : http://smart-todo-app.local/health
-- Documentation API : http://smart-todo-app.local/docs
 
 ---
 
@@ -239,7 +216,7 @@ kubectl logs <pod-name> -n smart-todo-app
 
 ### Test avec curl
 
-**Avec Port-Forward (Minikube recommandé)** :
+**Avec Port-Forward (Minikube)** :
 
 ```bash
 # Démarrer le port-forward
@@ -262,7 +239,7 @@ curl -X POST http://localhost:8000/create_task \
 curl http://localhost:8000/get_task
 ```
 
-**Via Ingress (Minikube avec tunnel ou GCP)** :
+**Via Ingress (GCP)** :
 
 ```bash
 # Test du backend
@@ -293,7 +270,12 @@ curl http://smart-todo-app.local/get_task
 kubectl run -it --rm load-generator --image=busybox:1.35 -n smart-todo-app -- /bin/sh
 
 # Dans le pod, exécuter :
-while true; do wget -q -O- http://backend-service:8000/health; done
+while true; do wget -q -O- http://backend-service:8000/health; sleep 0.01; done
+
+# niveau extra : Lancer plusieurs pods de test en parallèle
+for i in {1..5}; do
+  kubectl run load-generator-$i --image=busybox:1.35 -n smart-todo-app -- /bin/sh -c "while true; do wget -q -O- http://backend-service:8000/get_task >/dev/null 2>&1; done" &
+done
 ```
 
 ### Observer le scaling
@@ -309,53 +291,6 @@ kubectl get pods -n smart-todo-app -w
 kubectl top pods -n smart-todo-app
 ```
 
----
-
-## Accès à l'application
-
-### Configuration pour Minikube
-
-Utilisez le port-forward (plus fiable que l'ingress en local) :
-
-```bash
-# Backend
-kubectl port-forward -n smart-todo-app svc/backend-service 8000:8000
-
-# Frontend (dans un autre terminal)
-kubectl port-forward -n smart-todo-app svc/frontend-service 3000:3000
-```
-
-Puis accédez à :
-- **Frontend** : http://localhost:3000
-- **Backend** : http://localhost:8000
-- **Documentation API** : http://localhost:8000/docs
-
-Alternativement, via Ingress avec tunnel :
-
-```bash
-# Ajouter au fichier hosts
-echo "$(minikube ip) smart-todo-app.local" | sudo tee -a /etc/hosts
-
-# Lancer le tunnel Minikube (terminal séparé)
-minikube tunnel
-```
-
-### Configuration pour GCP
-
-```bash
-# Récupérer l'IP de l'Ingress
-kubectl get ingress -n smart-todo-app
-
-# Ajouter au fichier hosts (pour test local)
-echo "<INGRESS_IP> smart-todo-app.local" | sudo tee -a /etc/hosts
-```
-
-Accès via navigateur :
-- **Frontend** : http://smart-todo-app.local
-- **API Backend** : http://smart-todo-app.local/health
-- **Documentation API** : http://smart-todo-app.local/docs
-
----
 
 ## Commandes utiles
 
@@ -375,15 +310,6 @@ kubectl exec -it <pod-name> -n smart-todo-app -- /bin/sh
 kubectl rollout restart deployment/<deployment-name> -n smart-todo-app
 ```
 
-### Scaling manuel
-
-```bash
-# Scaler le backend
-kubectl scale deployment backend --replicas=5 -n smart-todo-app
-
-# Scaler le frontend
-kubectl scale deployment frontend --replicas=3 -n smart-todo-app
-```
 
 ### Vérifications
 
@@ -435,15 +361,17 @@ kubectl get pods -n smart-todo-app -w
 
 ---
 
-## 🗑️ Nettoyage
+## Nettoyage
 
 ### Supprimer toute l'application
 
 ```bash
-# Méthode 1 : Supprimer le namespace complet
+# Supprimer le namespace complet
 kubectl delete namespace smart-todo-app
 
-# Méthode 2 : Utiliser le script de nettoyage
+# ou
+
+# Utiliser le script de nettoyage
 ./cleanup.sh
 ```
 

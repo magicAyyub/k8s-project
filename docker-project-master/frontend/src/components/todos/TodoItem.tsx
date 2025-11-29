@@ -115,6 +115,14 @@ export function TodoItem({
                   </Button>
                 </div>
 
+                {todo.description && (
+                  <p className={`text-sm leading-relaxed ${
+                    todo.completed ? "text-slate-400" : "text-slate-600"
+                  }`}>
+                    {todo.description}
+                  </p>
+                )}
+
                 <div className="flex flex-wrap items-center gap-3 text-xs">
                   <div className="flex items-center gap-1">
                     <div

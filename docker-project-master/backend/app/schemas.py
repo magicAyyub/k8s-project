@@ -11,6 +11,12 @@ class PriorityEnum(str, Enum):
 
 class TaskBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=100, examples=["Refactor UI"])
+    description: Optional[str] = Field(
+        None,
+        max_length=500,
+        examples=["Améliorer l'interface utilisateur de l'application mobile"],
+        description="Description détaillée de la tâche"
+    )
     priority: PriorityEnum = Field(default=PriorityEnum.MEDIUM, description="Priorité de la tâche")
     tags: List[str] = Field(
         default_factory=list,
@@ -49,6 +55,7 @@ class TaskCreate(TaskBase):
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
+    description: Optional[str] = None
     priority: Optional[str] = None
     completed: Optional[bool] = None
     starred: Optional[bool] = None

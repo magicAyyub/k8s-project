@@ -378,12 +378,12 @@ def create_persistence_diagram():
 def main():
     """Génère tous les diagrammes"""
     
-    print("🎨 Génération des diagrammes d'architecture Kubernetes...")
+    print("Génération des diagrammes d'architecture Kubernetes...")
     
     output_dir = 'diagrams'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-        print(f"📁 Dossier '{output_dir}' créé")
+        print(f"Dossier '{output_dir}' créé")
     
     diagrams = [
         ('architecture_complete', create_k8s_architecture_diagram(), 
@@ -399,7 +399,7 @@ def main():
     for filename, diagram, description in diagrams:
         filepath = os.path.join(output_dir, filename)
         diagram.render(filepath, cleanup=True)
-        print(f"✔️ {description}: {filepath}.png")
+        print(f"✓ {description}: {filepath}.png")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import { SortField } from "./TodoFilters";
 export interface Todo {
     id: string;
     title: string;
+    description?: string;
     completed: boolean;
     priority: "urgent" | "high" | "medium" | "low";
     tags: string[];
