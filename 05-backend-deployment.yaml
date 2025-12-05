@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ayyubmgc/smart-todo-backend:latest
+        image: ayyubmgc/smart-todo-backend-windows:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
